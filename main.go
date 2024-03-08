@@ -19,6 +19,9 @@ func main() {
     r.POST("/login", auth.Login)
     r.POST("/register", auth.Register)
     r.POST("/tasks", /* auth.AuthMiddleware, */ scheduler.CreateTask)
+    r.GET("/tasks", /* auth.AuthMiddleware, */ scheduler.GetTasks)
+    r.PATCH("/tasks/:taskId", /* auth.AuthMiddleware, */ scheduler.UpdateTask)
+    r.DELETE("/tasks/:taskId", /* auth.AuthMiddleware, */ scheduler.DeleteTask) 
 
     port := os.Getenv("PORT") 
     fmt.Println("🚀 Up & Running at port", port)

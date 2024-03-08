@@ -35,7 +35,7 @@ func hashPassword(password string) (string, error) {
 }
 
 func generateToken(input UserInput) (string, error) {
-    expirationTime := time.Now().Add(5 * time.Minute)
+    expirationTime := time.Now().Add(15 * time.Minute)
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
         Username: input.Username,
         RegisteredClaims: jwt.RegisteredClaims{

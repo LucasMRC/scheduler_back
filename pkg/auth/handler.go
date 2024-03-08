@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/LucasMRC/lb_back/pkg/database"
 	"github.com/LucasMRC/lb_back/pkg/users"
@@ -91,4 +93,20 @@ func Register(c *gin.Context) {
     }
 
     c.JSON(http.StatusCreated, gin.H{"status": "User created"})
+}
+
+func GetUsernameFromToken(tokenHeader string) (string, error) {
+    tokenString := strings.Replace(tokenHeader, "Bearer ", "", 1)
+    claims := &Claims{}
+    _, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
+        if ok := token.Method == jwt.SigningMethodHS256; !ok {
+            fmt.Println("unexpected signing method")
+            return nil, errors.New("unexpected signing method")
+        }
+        return sampleSecretKey, nil
+    })
+    if err != nil {
+        return "", err
+    }
+    return claims.Username, nil
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -177,6 +178,218 @@ func CreateTask(task tasks.Task) error {
     })
     if err != nil {
         fmt.Println("⚠️ Error creating task: ", err.Error())
+        return err
+    }
+    return nil
+}
+
+func GetTasks(username string) ([]tasks.Task, error) {
+    DB_TOKEN := os.Getenv("DB_TOKEN")
+    DB_TASKS := os.Getenv("DB_TASKS")
+    client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
+    userId := os.Getenv(strings.ToUpper(username) + "_ID")
+    response, err := client.Database.Query(
+        context.Background(),
+        notionapi.DatabaseID(DB_TASKS),
+        &notionapi.DatabaseQueryRequest{
+            Filter: notionapi.PropertyFilter{
+                Property: "assigned to",
+                People: &notionapi.PeopleFilterCondition{
+                    Contains: userId,
+                },
+            },
+        },
+    )
+    if err != nil {
+        fmt.Println("⚠️ Error querying page: ", err.Error())
+        return []tasks.Task{}, err
+    }
+    taskList := make([]tasks.Task, 0)
+    for _, page := range response.Results{
+        task := tasks.Task{}
+        title := page.Properties["title"].(*notionapi.TitleProperty)
+        description, _ := page.Properties["description"].(*notionapi.RichTextProperty)
+        dueDate, _ := page.Properties["due date"].(*notionapi.DateProperty)
+        recurring, _ := page.Properties["recurring"].(*notionapi.SelectProperty)
+        assignedTo, _ := page.Properties["assigned to"].(*notionapi.PeopleProperty)
+        status, _ := page.Properties["status"].(*notionapi.SelectProperty)
+        id, _ := page.Properties["id"].(*notionapi.UniqueIDProperty)
+        task.Title = title.Title[0].PlainText
+        task.Description = description.RichText[0].PlainText
+        task.DueDate = dueDate.Date.Start.String()
+        task.Recurring = recurring.Select.Name
+        task.AssignedTo = assignedTo.People[0].Person.Email
+        task.Status = status.Select.Name
+        task.ID = fmt.Sprint(id.UniqueID)
+        taskList = append(taskList, task)
+    }
+    return taskList, nil
+}
+
+func UpdateTask(taskId string, patch tasks.Task) (any, error) {
+    DB_TOKEN := os.Getenv("DB_TOKEN")
+    DB_TASKS := os.Getenv("DB_TASKS")
+    client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
+    taskIdInt, err := strconv.ParseFloat(taskId, 0)
+    if err != nil {
+        fmt.Println("Error getting id: ", err.Error())
+        return tasks.Task{}, err
+    }
+    // _ := os.Getenv(strings.ToUpper(username) + "_ID")
+    response, err := client.Database.Query(
+        context.Background(),
+        notionapi.DatabaseID(DB_TASKS),
+        &notionapi.DatabaseQueryRequest{
+            Filter: notionapi.PropertyFilter{
+                Property: "id",
+                Number: &notionapi.NumberFilterCondition{
+                    Equals: &taskIdInt,
+                },
+            },
+        },
+    )
+    if err != nil {
+        fmt.Println("⚠️ Error querying page: ", err.Error())
+        return []tasks.Task{}, err
+    }
+    task := tasks.Task{}
+    for _, page := range response.Results{
+        title := page.Properties["title"].(*notionapi.TitleProperty)
+        description, _ := page.Properties["description"].(*notionapi.RichTextProperty)
+        dueDate, _ := page.Properties["due date"].(*notionapi.DateProperty)
+        recurring, _ := page.Properties["recurring"].(*notionapi.SelectProperty)
+        assignedTo, _ := page.Properties["assigned to"].(*notionapi.PeopleProperty)
+        status, _ := page.Properties["status"].(*notionapi.SelectProperty)
+        if patch.Title == "" {
+            task.Title = title.Title[0].PlainText
+        } else {
+            task.Title = patch.Title
+        }
+        if patch.Description == "" {
+            task.Description = description.RichText[0].PlainText
+        } else {
+            task.Description = patch.Description
+        }
+        if patch.DueDate == "" {
+            task.DueDate = dueDate.Date.Start.String()
+        } else {
+            patchDate, err := time.Parse(time.DateOnly, patch.DueDate)
+            if err != nil {
+                fmt.Println("⚠️ Error parsing date: ", err.Error())
+                return tasks.Task{}, err
+            }
+            task.DueDate = patchDate.String()
+        }
+        if patch.Recurring == "" {
+            task.Recurring = recurring.Select.Name
+        } else {
+            task.Recurring = patch.Recurring
+        }
+        if patch.AssignedTo == "" {
+            task.AssignedTo = assignedTo.People[0].Person.Email
+        } else {
+            task.AssignedTo = patch.AssignedTo
+        }
+        if patch.Status == "" {
+            task.Status = status.Select.Name
+        } else {
+            task.Status = patch.Status
+        }
+    }
+    date, err := time.Parse(time.DateOnly, task.DueDate)
+    dateStart := notionapi.Date(date)
+    _, err = client.Page.Update(
+        context.Background(),
+        notionapi.PageID(response.Results[0].ID),
+        &notionapi.PageUpdateRequest{
+            Properties: notionapi.Properties{
+                "title": notionapi.TitleProperty{
+                    Title: []notionapi.RichText{
+                        {
+                            Type: "text",
+                            Text: &notionapi.Text{
+                                Content: task.Title,
+                            },
+                        },
+                    },
+                },
+                "description": notionapi.RichTextProperty{
+                    RichText: []notionapi.RichText{
+                        {
+                            Type: "text",
+                            Text: &notionapi.Text{
+                                Content: task.Description,
+                            },
+                        },
+                    },
+                },
+                "due date": notionapi.DateProperty{
+                    Date: &notionapi.DateObject{
+                        Start: &dateStart,
+                    },
+                },
+                "recurring": notionapi.SelectProperty{
+                    Select: notionapi.Option{
+                        Name: task.Recurring,
+                    },
+                },
+                "status": notionapi.SelectProperty{
+                    Select: notionapi.Option{
+                        Name: task.Status,
+                    },
+                },
+            },
+        },
+    )
+    if err != nil {
+        fmt.Println("⚠️ Error updating page: ", err.Error())
+        return tasks.Task{}, err
+    }
+    return patch, nil
+}
+
+func DeleteTask(taskId string) error {
+    DB_TOKEN := os.Getenv("DB_TOKEN")
+    DB_TASKS := os.Getenv("DB_TASKS")
+    client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
+    taskIdInt, err := strconv.ParseFloat(taskId, 0)
+    if err != nil {
+        fmt.Println("Error getting id: ", err.Error())
+        return err
+    }
+    response, err := client.Database.Query(
+        context.Background(),
+        notionapi.DatabaseID(DB_TASKS),
+        &notionapi.DatabaseQueryRequest{
+            Filter: notionapi.PropertyFilter{
+                Property: "id",
+                Number: &notionapi.NumberFilterCondition{
+                    Equals: &taskIdInt,
+                },
+            },
+        },
+    )
+    if err != nil {
+        fmt.Println("⚠️ Error querying page: ", err.Error())
+        return err
+    }
+    _, err = client.Page.Update(
+        context.Background(),
+        notionapi.PageID(response.Results[0].ID),
+        &notionapi.PageUpdateRequest{
+            Archived: true,
+            Properties: notionapi.Properties{
+                "status": notionapi.SelectProperty{
+                    Select: notionapi.Option{
+                        Name: "Deleted",
+                    },
+                },
+            },
+        },
+    )
+
+    if err != nil {
+        fmt.Println("⚠️ Error deleting page: ", err.Error())
         return err
     }
     return nil

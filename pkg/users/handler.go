@@ -1,12 +1,12 @@
 package users
 
 import (
-	"github.com/LucasMRC/lb_back/pkg/database"
+	"github.com/LucasMRC/lb_back/pkg/notion"
 	"github.com/gin-gonic/gin"
 )
 
 func GetUsers(c *gin.Context) {
-	users, err := database.GetUsers()
+	users, err := notion.GetUsers()
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return

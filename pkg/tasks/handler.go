@@ -8,6 +8,7 @@ import (
 
 	"github.com/LucasMRC/lb_back/pkg/auth"
 	"github.com/LucasMRC/lb_back/pkg/database"
+	"github.com/LucasMRC/lb_back/pkg/notion"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,7 +51,7 @@ func CreateTask(c *gin.Context) {
 		Status:      database.Status.Pending,
 	}
 
-	if err := database.CreateTask(task); err != nil {
+	if err := notion.CreateTask(task); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while creating task"})
 		return
 	}
@@ -67,7 +68,7 @@ func GetTasks(c *gin.Context) {
 		return
 	}
 
-	userTasks, err := database.GetTasks(username)
+	userTasks, err := notion.GetTasks(username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while fetching tasks"})
 		return
@@ -103,7 +104,7 @@ func UpdateTask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating task"})
 		return
 	}
-	task, err := database.UpdateTask(taskId, body)
+	task, err := notion.UpdateTask(taskId, body)
 	if err != nil {
 		fmt.Println("Error updating task: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating task"})
@@ -123,7 +124,7 @@ func DeleteTask(c *gin.Context) {
 	}
 	taskId := c.Param("taskId")
 
-	if err := database.DeleteTask(taskId); err != nil {
+	if err := notion.DeleteTask(taskId); err != nil {
 		fmt.Println("Error deleting task: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while fetching tasks"})
 		return

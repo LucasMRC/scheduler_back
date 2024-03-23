@@ -28,6 +28,7 @@ func CORSMiddleware() gin.HandlerFunc {
 }
 
 func main() {
+	fmt.Println("🚀 Starting server")
 	godotenv.Load()
 	gin.DisableConsoleColor()
 	r := gin.Default()

@@ -1,6 +1,28 @@
 package database
 
-import "fmt"
+import (
+	"fmt"
+	"html"
+	"strings"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+type User struct {
+	Alias    string `json:"alias"`
+	Email    string `json:"email"`
+	Password string `json:"-"`
+}
+
+func (u *User) BeforeSave() error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.Password = string(hashedPassword)
+	u.Alias = html.EscapeString(strings.TrimSpace(u.Alias))
+	return nil
+}
 
 type Task struct {
 	ID          string `json:"id"`
@@ -44,4 +66,14 @@ var Status = status{
 	Pending: fmt.Sprint(statusValue(0)),
 	Done:    fmt.Sprint(statusValue(1)),
 	Overdue: fmt.Sprint(statusValue(2)),
+}
+
+type RecurringType struct {
+	Id    int
+	Title string
+}
+
+type TaskStatus struct {
+	Id    int
+	Title string
 }

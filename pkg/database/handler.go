@@ -3,10 +3,13 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
-	// "github.com/LucasMRC/lb_back/pkg/notion"
+	"github.com/jomei/notionapi"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+var notion NotionAPI
 
 const createTasksTable string = `
 	CREATE TABLE IF NOT EXISTS tasks (
@@ -94,6 +97,11 @@ func init() {
 	if err := CreateTables(db); err != nil {
 		panic(err)
 	}
+
+	NOTION_DB_TOKEN := notionapi.Token(os.Getenv("DB_TOKEN"))
+	notion = NotionAPI{
+		Client: notionapi.NewClient(NOTION_DB_TOKEN),
+	}
 }
 
 func SaveUser(user User) error {
@@ -108,8 +116,130 @@ func SaveUser(user User) error {
 		return err
 	}
 	go func() {
-		// notion.SaveUser(user)
+		notion.SaveUser(user)
 	}()
 
+	return nil
+}
+
+func GetUsers() ([]User, error) {
+	db, err := sql.Open("sqlite3", "./pkg/database/scheduler.db")
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT alias, email FROM users")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := make([]User, 0)
+	for rows.Next() {
+		var user User
+		err := rows.Scan(&user.Alias, &user.Email)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, nil
+}
+
+func GetUser(alias string) (User, error) {
+	db, err := sql.Open("sqlite3", "./pkg/database/scheduler.db")
+	if err != nil {
+		return User{}, err
+	}
+	defer db.Close()
+
+	var user User
+	err = db.QueryRow("SELECT alias, email FROM users WHERE alias = ?", alias).Scan(&user.Alias, &user.Email)
+	if err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
+func CreateTask(task Task) error {
+	db, err := sql.Open("sqlite3", "./pkg/database/scheduler.db")
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("INSERT INTO tasks (title, description, due_date, recurring, assigned_to) VALUES (?, ?, ?, ?, ?)", task.Title, task.Description, task.DueDate, task)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetTasks(alias string) ([]Task, error) {
+	db, err := sql.Open("sqlite3", "./pkg/database/scheduler.db")
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT title, description, due_date, recurring, assigned_to FROM tasks JOIN users ON assign_to = users.id WHERE users.alias = ?", alias)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tasks := make([]Task, 0)
+	for rows.Next() {
+		var task Task
+		err := rows.Scan(&task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
+func GetTask(id int) (Task, error) {
+	db, err := sql.Open("sqlite3", "./pkg/database/scheduler.db")
+	if err != nil {
+		return Task{}, err
+	}
+	defer db.Close()
+
+	var task Task
+	err = db.QueryRow("SELECT title, description, due_date, recurring, assigned_to FROM tasks WHERE id = ?", id).Scan(&task.Title, &task.Description, &task.DueDate, &task)
+	if err != nil {
+		return Task{}, err
+	}
+	return task, nil
+}
+
+func UpdateTask(taskId string, task Task) error {
+	db, err := sql.Open("sqlite3", "./pkg/database/scheduler.db")
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("UPDATE tasks SET title = ?, description = ?, due_date = ?, recurring = ?, assigned_to = ? WHERE id = ?", task.Title, task.Description, task.DueDate, taskId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeleteTask(id string) error {
+	db, err := sql.Open("sqlite3", "./pkg/database/scheduler.db")
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("DELETE FROM tasks WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
 	return nil
 }

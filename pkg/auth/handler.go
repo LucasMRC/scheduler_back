@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/LucasMRC/lb_back/pkg/database"
-	"github.com/LucasMRC/lb_back/pkg/notion"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -34,7 +33,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	user, err := notion.GetUser(input.Username)
+	user, err := database.GetUser(input.Username)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
@@ -52,7 +51,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	if err := notion.SaveToken(tokenString); err != nil {
+	if err := database.SaveToken(tokenString); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while saving token"})
 		return
 	}
@@ -118,7 +117,7 @@ func GetUsernameFromToken(tokenHeader string) (string, error) {
 func Logout(c *gin.Context) {
 	tokenHeader := c.GetHeader("Authorization")
 	tokenString := strings.Replace(tokenHeader, "Bearer ", "", 1)
-	if err := notion.DeleteToken(tokenString); err != nil {
+	if err := database.DeleteToken(tokenString); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while deleting token"})
 		return
 	}

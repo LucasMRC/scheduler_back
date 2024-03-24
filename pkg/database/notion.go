@@ -1,8 +1,7 @@
-package notion
+package database
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -11,20 +10,18 @@ import (
 
 	"os"
 
-	"github.com/LucasMRC/lb_back/pkg/database"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jomei/notionapi"
 )
 
-var tokens []string
-var dbClien *sql.DB
+type NotionAPI struct {
+	Client *notionapi.Client
+}
 
-func GetUser(alias string) (database.User, error) {
-	DB_TOKEN := os.Getenv("DB_TOKEN")
+func (n NotionAPI) GetUser(alias string) (User, error) {
 	DB_USERS := os.Getenv("DB_USERS")
-	client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
 
-	response, err := client.Database.Query(
+	response, err := n.Client.Database.Query(
 		context.Background(),
 		notionapi.DatabaseID(DB_USERS),
 		&notionapi.DatabaseQueryRequest{
@@ -38,14 +35,14 @@ func GetUser(alias string) (database.User, error) {
 	)
 	if err != nil {
 		fmt.Println("⚠️ Error querying page: ", err.Error())
-		return database.User{}, err
+		return User{}, err
 	}
 	var value string
 	for _, page := range response.Results {
 		name := page.Properties["username"].(*notionapi.TitleProperty)
 		value = name.Title[0].PlainText
 		if value == alias {
-			user := database.User{}
+			user := User{}
 			password, _ := page.Properties["password"].(*notionapi.RichTextProperty)
 			account, _ := page.Properties["account"].(*notionapi.PeopleProperty)
 			user.Alias = value
@@ -54,16 +51,14 @@ func GetUser(alias string) (database.User, error) {
 			return user, nil
 		}
 	}
-	return database.User{}, errors.New("database.User not found")
+	return User{}, errors.New("User not found")
 }
 
-func SaveUser(user database.User) error {
-	DB_TOKEN := os.Getenv("DB_TOKEN")
+func (n NotionAPI) SaveUser(user User) error {
 	DB_USERS := os.Getenv("DB_USERS")
-	client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
 	userId := os.Getenv(strings.ToUpper(user.Alias) + "_ID")
 
-	_, err := client.Page.Create(context.Background(), &notionapi.PageCreateRequest{
+	_, err := n.Client.Page.Create(context.Background(), &notionapi.PageCreateRequest{
 		Parent: notionapi.Parent{
 			DatabaseID: notionapi.DatabaseID(DB_USERS),
 		},
@@ -107,23 +102,21 @@ func SaveUser(user database.User) error {
 	return nil
 }
 
-func CreateTask(task database.Task) error {
-	DB_TOKEN := os.Getenv("DB_TOKEN")
+func (n NotionAPI) CreateTask(task Task) error {
 	DB_TASKS := os.Getenv("DB_TASKS")
-	client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
 	date, err := time.Parse(time.DateOnly, task.DueDate)
 	if err != nil {
 		fmt.Println("⚠️ Error parsing date: ", err.Error())
 		return err
 	}
-	user, err := GetUser(task.AssignedTo)
+	user, err := n.GetUser(task.AssignedTo)
 	if err != nil {
 		fmt.Println("⚠️ Error getting user: ", err.Error())
 		return err
 	}
 	userId := os.Getenv(strings.ToUpper(task.AssignedTo) + "_ID")
 	dateStart := notionapi.Date(date)
-	_, err = client.Page.Create(context.Background(), &notionapi.PageCreateRequest{
+	_, err = n.Client.Page.Create(context.Background(), &notionapi.PageCreateRequest{
 		Parent: notionapi.Parent{
 			DatabaseID: notionapi.DatabaseID(DB_TASKS),
 		},
@@ -182,12 +175,10 @@ func CreateTask(task database.Task) error {
 	return nil
 }
 
-func GetTasks(username string) ([]database.Task, error) {
-	DB_TOKEN := os.Getenv("DB_TOKEN")
+func (n NotionAPI) GetTasks(username string) ([]Task, error) {
 	DB_TASKS := os.Getenv("DB_TASKS")
-	client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
 	userId := os.Getenv(strings.ToUpper(username) + "_ID")
-	response, err := client.Database.Query(
+	response, err := n.Client.Database.Query(
 		context.Background(),
 		notionapi.DatabaseID(DB_TASKS),
 		&notionapi.DatabaseQueryRequest{
@@ -201,11 +192,11 @@ func GetTasks(username string) ([]database.Task, error) {
 	)
 	if err != nil {
 		fmt.Println("⚠️ Error querying page: ", err.Error())
-		return []database.Task{}, err
+		return []Task{}, err
 	}
-	taskList := make([]database.Task, 0)
+	taskList := make([]Task, 0)
 	for _, page := range response.Results {
-		task := database.Task{}
+		task := Task{}
 		title := page.Properties["title"].(*notionapi.TitleProperty)
 		description, _ := page.Properties["description"].(*notionapi.RichTextProperty)
 		dueDate, _ := page.Properties["due date"].(*notionapi.DateProperty)
@@ -231,17 +222,14 @@ func GetTasks(username string) ([]database.Task, error) {
 	return taskList, nil
 }
 
-func UpdateTask(taskId string, patch database.Task) (database.Task, error) {
-	DB_TOKEN := os.Getenv("DB_TOKEN")
+func (n NotionAPI) UpdateTask(taskId string, patch Task) (Task, error) {
 	DB_TASKS := os.Getenv("DB_TASKS")
-	client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
 	taskIdInt, err := strconv.ParseFloat(taskId, 0)
 	if err != nil {
 		fmt.Println("Error getting id: ", err.Error())
-		return database.Task{}, err
+		return Task{}, err
 	}
-	// _ := os.Getenv(strings.ToUpper(username) + "_ID")
-	response, err := client.Database.Query(
+	response, err := n.Client.Database.Query(
 		context.Background(),
 		notionapi.DatabaseID(DB_TASKS),
 		&notionapi.DatabaseQueryRequest{
@@ -255,9 +243,9 @@ func UpdateTask(taskId string, patch database.Task) (database.Task, error) {
 	)
 	if err != nil {
 		fmt.Println("⚠️ Error querying page: ", err.Error())
-		return database.Task{}, err
+		return Task{}, err
 	}
-	task := database.Task{}
+	task := Task{}
 	for _, page := range response.Results {
 		title := page.Properties["title"].(*notionapi.TitleProperty)
 		description, _ := page.Properties["description"].(*notionapi.RichTextProperty)
@@ -281,7 +269,7 @@ func UpdateTask(taskId string, patch database.Task) (database.Task, error) {
 			patchDate, err := time.Parse(time.DateOnly, patch.DueDate)
 			if err != nil {
 				fmt.Println("⚠️ Error parsing date: ", err.Error())
-				return database.Task{}, err
+				return Task{}, err
 			}
 			task.DueDate = patchDate.String()
 		}
@@ -303,7 +291,7 @@ func UpdateTask(taskId string, patch database.Task) (database.Task, error) {
 	}
 	date, err := time.Parse(time.DateOnly, task.DueDate)
 	dateStart := notionapi.Date(date)
-	_, err = client.Page.Update(
+	_, err = n.Client.Page.Update(
 		context.Background(),
 		notionapi.PageID(response.Results[0].ID),
 		&notionapi.PageUpdateRequest{
@@ -348,21 +336,19 @@ func UpdateTask(taskId string, patch database.Task) (database.Task, error) {
 	)
 	if err != nil {
 		fmt.Println("⚠️ Error updating page: ", err.Error())
-		return database.Task{}, err
+		return Task{}, err
 	}
 	return patch, nil
 }
 
-func DeleteTask(taskId string) error {
-	DB_TOKEN := os.Getenv("DB_TOKEN")
+func (n NotionAPI) DeleteTask(taskId string) error {
 	DB_TASKS := os.Getenv("DB_TASKS")
-	client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
 	taskIdInt, err := strconv.ParseFloat(taskId, 0)
 	if err != nil {
 		fmt.Println("Error getting id: ", err.Error())
 		return err
 	}
-	response, err := client.Database.Query(
+	response, err := n.Client.Database.Query(
 		context.Background(),
 		notionapi.DatabaseID(DB_TASKS),
 		&notionapi.DatabaseQueryRequest{
@@ -378,7 +364,7 @@ func DeleteTask(taskId string) error {
 		fmt.Println("⚠️ Error querying page: ", err.Error())
 		return err
 	}
-	_, err = client.Page.Update(
+	_, err = n.Client.Page.Update(
 		context.Background(),
 		notionapi.PageID(response.Results[0].ID),
 		&notionapi.PageUpdateRequest{
@@ -400,48 +386,20 @@ func DeleteTask(taskId string) error {
 	return nil
 }
 
-func SaveToken(token string) error {
-	tokens = append(tokens, token)
-	return nil
-}
-
-func ConnectToDB() error {
-	db, err := sql.Open("mysql", os.Getenv("DNS"))
-	if err != nil {
-		fmt.Println("⚠️ Error connecting to database: ", err.Error())
-		return err
-	}
-	fmt.Println("🔌 Connected to database")
-	dbClien = db
-	return nil
-}
-
-func DeleteToken(token string) error {
-	for i, t := range tokens {
-		if t == token {
-			tokens = append(tokens[:i], tokens[i+1:]...)
-			return nil
-		}
-	}
-	return errors.New("Token not found")
-}
-
-func GetUsers() ([]database.User, error) {
-	DB_TOKEN := os.Getenv("DB_TOKEN")
+func (n NotionAPI) GetUsers() ([]User, error) {
 	DB_USERS := os.Getenv("DB_USERS")
-	client := notionapi.NewClient(notionapi.Token(DB_TOKEN))
-	response, err := client.Database.Query(
+	response, err := n.Client.Database.Query(
 		context.Background(),
 		notionapi.DatabaseID(DB_USERS),
 		&notionapi.DatabaseQueryRequest{},
 	)
 	if err != nil {
 		fmt.Println("⚠️ Error querying page: ", err.Error())
-		return []database.User{}, err
+		return []User{}, err
 	}
-	userList := make([]database.User, 0)
+	userList := make([]User, 0)
 	for _, page := range response.Results {
-		user := database.User{}
+		user := User{}
 		username := page.Properties["username"].(*notionapi.TitleProperty)
 		password, _ := page.Properties["password"].(*notionapi.RichTextProperty)
 		account, _ := page.Properties["account"].(*notionapi.PeopleProperty)

@@ -1,12 +1,15 @@
 package users
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 )
 
 func GetUsers(c *gin.Context) {
 	users, err := database.GetUsers()
 	if err != nil {
+		fmt.Println("⚠️ Error while getting users: ", err.Error())
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}

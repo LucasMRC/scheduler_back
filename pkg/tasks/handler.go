@@ -12,11 +12,11 @@ import (
 )
 
 type NewTaskInput struct {
-	Title       string  `json:"title" binding:"required"`
-	Description *string `json:"description"`
-	DueDate     string  `json:"dueDate" binding:"required"`
-	Recurring   string  `json:"recurring"`
-	AssignedTo  string  `json:"assignedTo" binding:"required"`
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	DueDate     string `json:"due_date" binding:"required"`
+	Recurring   string `json:"recurring"`
+	AssignedTo  string `json:"assigned_to" binding:"required"`
 }
 
 func CreateTask(c *gin.Context) {
@@ -29,10 +29,10 @@ func CreateTask(c *gin.Context) {
 	}
 
 	var description string
-	if input.Description == nil {
+	if input.Description == "" {
 		description = ""
 	} else {
-		description = input.Recurring
+		description = input.Description
 	}
 	var recurring string
 	if input.Recurring == "" {
@@ -41,16 +41,34 @@ func CreateTask(c *gin.Context) {
 		recurring = input.Recurring
 	}
 
+	userLoggedIn, err := database.GetUserFromToken(c.Request.Header.Get("Authorization"))
+	if err != nil {
+		fmt.Println("⚠️ Error while getting user from token: ", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while creating task"})
+		return
+	}
+
+	userAssigned, err := database.GetUser(input.AssignedTo)
+	if err != nil {
+		fmt.Println("⚠️ Error while getting user assigned: ", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while creating task"})
+		return
+	}
+
 	task := database.Task{
-		AssignedTo:  input.AssignedTo,
-		DueDate:     input.DueDate,
-		Title:       input.Title,
-		Description: description,
-		Recurring:   recurring,
-		Status:      database.Status.Pending,
+		TaskCore: database.TaskCore{
+			Title:       input.Title,
+			Description: description,
+			DueDate:     input.DueDate,
+			Recurring:   recurring,
+		},
+		AssignedTo: userAssigned.Id,
+		Status:     0,
+		CreatedBy:  userLoggedIn.Id,
 	}
 
 	if err := database.CreateTask(task); err != nil {
+		fmt.Println("⚠️ Error while creating task: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while creating task"})
 		return
 	}
@@ -69,11 +87,12 @@ func GetTasks(c *gin.Context) {
 
 	userTasks, err := database.GetTasks(username)
 	if err != nil {
+		fmt.Println("Error getting tasks: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while fetching tasks"})
 		return
 	}
 
-	response := map[string][]database.Task{
+	response := map[string][]database.TaskDTO{
 		"tasks": userTasks,
 	}
 

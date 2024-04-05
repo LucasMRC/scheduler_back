@@ -35,10 +35,11 @@ func Login(c *gin.Context) {
 
 	user, err := database.GetUser(input.Username)
 	if err != nil {
+		fmt.Println("⚠️ Error while getting user: ", err.Error())
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
-	if err := verifyPassword(input.Password, user.Password); err != nil {
+	if err := verifyPassword(input.Password, user.Hash); err != nil {
 		fmt.Println("⚠️ Error while verifying password: ", err.Error())
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
@@ -51,7 +52,8 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	if err := database.SaveToken(tokenString); err != nil {
+	if err := database.SaveToken(tokenString, user); err != nil {
+		fmt.Println("⚠️ Error while saving token: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while saving token"})
 		return
 	}
@@ -71,10 +73,10 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	// if user, _ := notion.GetUser(input.Username); user.Alias != "" {
-	// 	c.JSON(http.StatusConflict, gin.H{"error": "Username already registered"})
-	// 	return
-	// }
+	if user, _ := database.GetUser(input.Username); user.Alias != "" {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username already registered"})
+		return
+	}
 
 	// Validate email here...
 
@@ -85,12 +87,13 @@ func Register(c *gin.Context) {
 		return
 	}
 	user := database.User{
-		Alias:    input.Username,
-		Password: hash,
-		Email:    input.Email,
+		Alias: input.Username,
+		Hash:  hash,
+		Email: input.Email,
 	}
 
 	if err := database.SaveUser(user); err != nil {
+		fmt.Println("⚠️ Error while saving user: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while saving user"})
 		return
 	}
@@ -122,4 +125,15 @@ func Logout(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func GetSession(c *gin.Context) {
+	tokenHeader := c.GetHeader("Authorization")
+	tokenString := strings.Replace(tokenHeader, "Bearer ", "", 1)
+	user, err := database.GetUserFromToken(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }

@@ -25,15 +25,26 @@ func (u *User) BeforeSave() error {
 	return nil
 }
 
-type Task struct {
-	ID          string `json:"id"`
+type TaskCore struct {
+	Id          int    `json:"id,omitempty"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	Status      string `json:"status"`
 	DueDate     string `json:"dueDate"`
 	Recurring   string `json:"recurring"`
-	CreatedBy   string `json:"createdBy"`
-	AssignedTo  string `json:"assignedTo"`
+}
+
+type TaskDTO struct {
+	TaskCore
+	Status     string `json:"status"`
+	CreatedBy  string `json:"createdBy"`
+	AssignedTo string `json:"assignedTo"`
+}
+
+type Task struct {
+	TaskCore
+	Status     int
+	CreatedBy  int
+	AssignedTo int
 }
 
 type statusValue int

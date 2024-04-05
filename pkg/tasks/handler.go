@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/LucasMRC/lb_back/pkg/auth"
 	"github.com/LucasMRC/lb_back/pkg/database"
@@ -122,7 +123,13 @@ func UpdateTask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating task"})
 		return
 	}
-	task, err := database.UpdateTask(taskId, body)
+	id, err := strconv.Atoi(taskId)
+	if err != nil {
+		fmt.Println("Error converting task id to int: ", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating task"})
+		return
+	}
+	task, err := database.UpdateTask(id, body)
 	if err != nil {
 		fmt.Println("Error updating task: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating task"})
@@ -141,8 +148,14 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 	taskId := c.Param("taskId")
+	id, err := strconv.Atoi(taskId)
+	if err != nil {
+		fmt.Println("Error converting task id to int: ", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting task"})
+		return
+	}
 
-	if err := database.DeleteTask(taskId); err != nil {
+	if err := database.DeleteTask(id); err != nil {
 		fmt.Println("Error deleting task: ", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while fetching tasks"})
 		return

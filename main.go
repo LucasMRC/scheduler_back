@@ -38,6 +38,7 @@ func main() {
 	r.POST("/login", auth.Login)
 	r.GET("/logout", auth.Logout)
 	r.POST("/register", auth.Register)
+	r.GET("/session", auth.GetSession)
 
 	// Task routes
 	r.POST("/tasks" /* auth.AuthMiddleware, */, tasks.CreateTask)
@@ -48,7 +49,7 @@ func main() {
 	// User routes
 	r.GET("/users", users.GetUsers)
 	r.GET("/users/:userId", users.GetUser)
-	r.PATCH("/users/:userId", users.UpdateUser)
+	// r.PATCH("/users/:userId", users.UpdateUser)
 
 	// Start server
 	port := os.Getenv("PORT")

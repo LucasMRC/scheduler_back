@@ -3,6 +3,7 @@ package users
 import (
 	"fmt"
 
+	"github.com/LucasMRC/lb_back/pkg/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,9 +18,11 @@ func GetUsers(c *gin.Context) {
 }
 
 func GetUser(c *gin.Context) {
-	c.JSON(200, gin.H{"message": "GetUser"})
-}
-
-func UpdateUser(c *gin.Context) {
-	c.JSON(200, gin.H{"message": "UpdateUser"})
+	user, err := database.GetUser(c.Param("alias"))
+	if err != nil {
+		fmt.Println("⚠️ Error while getting user: ", err.Error())
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"message": user})
 }

@@ -105,6 +105,11 @@ func init() {
 	if err := CreateTables(db); err != nil {
 		panic(err)
 	}
+
+	if err := Seed(); err != nil {
+		panic(err)
+	}
+
 }
 
 func SaveUser(user User) error {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/LucasMRC/lb_back/pkg/auth"
-	"github.com/LucasMRC/lb_back/pkg/tasks"
-	"github.com/LucasMRC/lb_back/pkg/users"
+	"github.com/LucasMRC/lb_back/internal/auth"
+	"github.com/LucasMRC/lb_back/internal/tasks"
+	"github.com/LucasMRC/lb_back/internal/users"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -37,18 +37,18 @@ func main() {
 	// Auth routes
 	r.POST("/login", auth.Login)
 	r.GET("/logout", auth.Logout)
-	r.POST("/register", auth.Register)
-	r.GET("/session", auth.GetSession)
+	r.POST("/signup", auth.Register)
+	r.GET("/session", auth.AuthMiddleware, auth.GetSession)
 
 	// Task routes
-	r.POST("/tasks" /* auth.AuthMiddleware, */, tasks.CreateTask)
-	r.GET("/tasks" /* auth.AuthMiddleware, */, tasks.GetTasks)
-	r.PATCH("/tasks/:taskId" /* auth.AuthMiddleware, */, tasks.UpdateTask)
-	r.DELETE("/tasks/:taskId" /* auth.AuthMiddleware, */, tasks.DeleteTask)
+	r.POST("/tasks", auth.AuthMiddleware, tasks.CreateTask)
+	r.GET("/tasks", auth.AuthMiddleware, tasks.GetTasks)
+	r.PATCH("/tasks/:taskId", auth.AuthMiddleware, tasks.UpdateTask)
+	r.DELETE("/tasks/:taskId", auth.AuthMiddleware, tasks.DeleteTask)
 
 	// User routes
-	r.GET("/users", users.GetUsers)
-	r.GET("/users/:userId", users.GetUser)
+	r.GET("/users", auth.AuthMiddleware, users.GetUsers)
+	r.GET("/users/:userId", auth.AuthMiddleware, users.GetUser)
 	// r.PATCH("/users/:userId", users.UpdateUser)
 
 	// Start server
@@ -56,3 +56,5 @@ func main() {
 	fmt.Println("🚀 Up & Running at port", port)
 	r.Run(":" + port)
 }
+
+// https://pkg.go.dev/modernc.org/sqlite

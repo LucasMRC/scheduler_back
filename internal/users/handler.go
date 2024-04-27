@@ -3,7 +3,7 @@ package users
 import (
 	"fmt"
 
-	"github.com/LucasMRC/lb_back/pkg/database"
+	"github.com/LucasMRC/lb_back/internal/database"
 	"github.com/gin-gonic/gin"
 )
 

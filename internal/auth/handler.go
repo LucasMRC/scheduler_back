@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/LucasMRC/lb_back/pkg/database"
+	"github.com/LucasMRC/lb_back/internal/database"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -128,12 +128,19 @@ func Logout(c *gin.Context) {
 }
 
 func GetSession(c *gin.Context) {
+	user := c.MustGet("user").(database.User)
+	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func AuthMiddleware(c *gin.Context) {
 	tokenHeader := c.GetHeader("Authorization")
 	tokenString := strings.Replace(tokenHeader, "Bearer ", "", 1)
 	user, err := database.GetUserFromToken(tokenString)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		c.Abort()
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": user})
+	c.Set("user", user)
+	c.Next()
 }

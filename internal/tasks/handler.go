@@ -7,8 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/LucasMRC/lb_back/pkg/auth"
-	"github.com/LucasMRC/lb_back/pkg/database"
+	"github.com/LucasMRC/lb_back/internal/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,12 +41,7 @@ func CreateTask(c *gin.Context) {
 		recurring = input.Recurring
 	}
 
-	userLoggedIn, err := database.GetUserFromToken(c.Request.Header.Get("Authorization"))
-	if err != nil {
-		fmt.Println("⚠️ Error while getting user from token: ", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while creating task"})
-		return
-	}
+	userLoggedIn := c.MustGet("user").(database.User)
 
 	userAssigned, err := database.GetUser(input.AssignedTo)
 	if err != nil {
@@ -78,14 +72,7 @@ func CreateTask(c *gin.Context) {
 }
 
 func GetTasks(c *gin.Context) {
-	token := c.Request.Header.Get("Authorization")
-	username, err := auth.GetUsernameFromToken(token)
-	if err != nil {
-		fmt.Println("Error getting the username: ", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while fetching tasks"})
-		return
-	}
-
+	username := c.MustGet("user").(database.User).Alias
 	userTasks, err := database.GetTasks(username)
 	if err != nil {
 		fmt.Println("Error getting tasks: ", err.Error())
@@ -102,13 +89,6 @@ func GetTasks(c *gin.Context) {
 }
 
 func UpdateTask(c *gin.Context) {
-	token := c.Request.Header.Get("Authorization")
-	_, err := auth.GetUsernameFromToken(token)
-	if err != nil {
-		fmt.Println("Error getting the username: ", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating task"})
-		return
-	}
 	taskId := c.Param("taskId")
 	jsonBody, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -140,13 +120,6 @@ func UpdateTask(c *gin.Context) {
 }
 
 func DeleteTask(c *gin.Context) {
-	token := c.Request.Header.Get("Authorization")
-	_, err := auth.GetUsernameFromToken(token)
-	if err != nil {
-		fmt.Println("Error getting the username: ", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while fetching tasks"})
-		return
-	}
 	taskId := c.Param("taskId")
 	id, err := strconv.Atoi(taskId)
 	if err != nil {

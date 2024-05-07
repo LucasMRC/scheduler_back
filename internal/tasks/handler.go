@@ -90,13 +90,15 @@ func GetTasks(c *gin.Context) {
 
 func UpdateTask(c *gin.Context) {
 	taskId := c.Param("taskId")
+
 	jsonBody, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		fmt.Println("Error getting the body from request: ", err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad request"})
 		return
 	}
-	body := database.Task{}
+
+	body := database.TaskDTO{}
 	err = json.Unmarshal([]byte(jsonBody), &body)
 	if err != nil {
 		fmt.Println("Error parsing json to map: ", err.Error())

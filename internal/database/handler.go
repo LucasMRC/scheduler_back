@@ -216,7 +216,7 @@ func GetTasks(alias string) ([]TaskDTO, error) {
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT tasks.id, tasks.title, description, due_date, recurring, users.alias as assigned_to, task_status.title as status FROM tasks JOIN users ON tasks.assigned_to = users.id JOIN task_status on tasks.status = task_status.id WHERE users.alias = ?", alias)
+	rows, err := db.Query("SELECT tasks.id, tasks.title, description, due_date, recurring, users.alias as assigned_to, task_status.title as status, u2.alias as created_by FROM tasks INNER JOIN users ON tasks.assigned_to = users.id INNER JOIN task_status on tasks.status = task_status.id INNER JOIN users u2 ON tasks.created_by = u2.id WHERE users.alias = ?", alias)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func GetTasks(alias string) ([]TaskDTO, error) {
 	tasks := make([]TaskDTO, 0)
 	for rows.Next() {
 		var task TaskDTO
-		err := rows.Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo, &task.Status)
+		err := rows.Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo, &task.Status, &task.CreatedBy)
 		if err != nil {
 			return nil, err
 		}
@@ -234,36 +234,37 @@ func GetTasks(alias string) ([]TaskDTO, error) {
 	return tasks, nil
 }
 
-func GetTask(id int) (Task, error) {
+func GetTask(id int) (TaskDTO, error) {
 	db, err := sql.Open("sqlite3", "file:scheduler.db")
 	if err != nil {
-		return Task{}, err
+		return TaskDTO{}, err
 	}
 	defer db.Close()
 
-	var task Task
-	err = db.QueryRow("SELECT title, description, due_date, recurring, assigned_to FROM tasks WHERE id = ?", id).Scan(&task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo)
+	var task TaskDTO
+	err = db.QueryRow("SELECT t.title, t.description, t.due_date, t.recurring, u.alias as assigned_to, s.title as status, u2.alias as created_by FROM tasks t INNER JOIN task_status s ON s.id = t.status INNER JOIN users u ON u.id = t.assigned_to INNER JOIN users u2 ON u2.id = t.created_by WHERE t.id = ?", id).Scan(&task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo, &task.Status, &task.CreatedBy)
 	if err != nil {
-		return Task{}, err
+		return TaskDTO{}, err
 	}
 	return task, nil
 }
 
-func UpdateTask(taskId int, task Task) (Task, error) {
+func UpdateTask(taskId int, task TaskDTO) (TaskDTO, error) {
 	db, err := sql.Open("sqlite3", "file:scheduler.db")
 	if err != nil {
-		return Task{}, err
+		return TaskDTO{}, err
 	}
 	defer db.Close()
 
-	_, err = db.Exec("UPDATE tasks SET title = ?, description = ?, due_date = ?, recurring = ?, assigned_to = ? WHERE id = ?", task.Title, task.Description, task.DueDate, task.Recurring, task.AssignedTo, taskId)
+	fmt.Println("status", task.Status)
+	_, err = db.Exec("UPDATE tasks SET title = ?, description = ?, due_date = ?, recurring = ?, assigned_to = (SELECT u.id FROM users u WHERE u.alias = ?), status = (SELECT ts.id FROM task_status ts WHERE ts.title = ?) WHERE id = ?", task.Title, task.Description, task.DueDate, task.Recurring, task.AssignedTo, task.Status, taskId)
 	if err != nil {
-		return Task{}, err
+		return TaskDTO{}, err
 	}
 
 	updatedTask, err := GetTask(taskId)
 	if err != nil {
-		return Task{}, err
+		return TaskDTO{}, err
 	}
 	// go func() {
 	// 	NOTION_DB_TOKEN := notionapi.Token(os.Getenv("DB_TOKEN"))

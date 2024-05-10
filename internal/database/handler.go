@@ -16,6 +16,7 @@ const createTasksTable string = `
 		description TEXT,
 		title TEXT NOT NULL,
 		due_date DATETIME NOT NULL,
+		done_date DATETIME,
 		recurring INTEGER NOT NULL DEFAULT 1,
 		assigned_to INTEGER NOT NULL ON CONFLICT FAIL,
 		status INTEGER NOT NULL DEFAULT 1,
@@ -216,7 +217,7 @@ func GetTasks(alias string) ([]TaskDTO, error) {
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT tasks.id, tasks.title, description, due_date, recurring, users.alias as assigned_to, task_status.title as status, u2.alias as created_by FROM tasks INNER JOIN users ON tasks.assigned_to = users.id INNER JOIN task_status on tasks.status = task_status.id INNER JOIN users u2 ON tasks.created_by = u2.id WHERE users.alias = ?", alias)
+	rows, err := db.Query("SELECT tasks.id, tasks.title, tasks.description, tasks.due_date, tasks.recurring, users.alias as assigned_to, task_status.title as status, u2.alias as created_by, tasks.done_date FROM tasks INNER JOIN users ON tasks.assigned_to = users.id INNER JOIN task_status on tasks.status = task_status.id INNER JOIN users u2 ON tasks.created_by = u2.id WHERE users.alias = ?", alias)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +226,7 @@ func GetTasks(alias string) ([]TaskDTO, error) {
 	tasks := make([]TaskDTO, 0)
 	for rows.Next() {
 		var task TaskDTO
-		err := rows.Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo, &task.Status, &task.CreatedBy)
+		err := rows.Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo, &task.Status, &task.CreatedBy, &task.DoneDate)
 		if err != nil {
 			return nil, err
 		}
@@ -242,7 +243,7 @@ func GetTask(id int) (TaskDTO, error) {
 	defer db.Close()
 
 	var task TaskDTO
-	err = db.QueryRow("SELECT t.title, t.description, t.due_date, t.recurring, u.alias as assigned_to, s.title as status, u2.alias as created_by FROM tasks t INNER JOIN task_status s ON s.id = t.status INNER JOIN users u ON u.id = t.assigned_to INNER JOIN users u2 ON u2.id = t.created_by WHERE t.id = ?", id).Scan(&task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo, &task.Status, &task.CreatedBy)
+	err = db.QueryRow("SELECT t.id, t.title, t.description, t.due_date, t.recurring, u.alias as assigned_to, s.title as status, u2.alias as created_by, t.done_date FROM tasks t INNER JOIN task_status s ON s.id = t.status INNER JOIN users u ON u.id = t.assigned_to INNER JOIN users u2 ON u2.id = t.created_by WHERE t.id = ?", id).Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Recurring, &task.AssignedTo, &task.Status, &task.CreatedBy, &task.DoneDate)
 	if err != nil {
 		return TaskDTO{}, err
 	}

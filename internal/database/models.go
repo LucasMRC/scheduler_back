@@ -1,6 +1,8 @@
 package database
 
 import (
+	"database/sql/driver"
+	"errors"
 	"fmt"
 	"html"
 	"strings"
@@ -26,11 +28,12 @@ func (u *User) BeforeSave() error {
 }
 
 type TaskCore struct {
-	Id          int    `json:"id,omitempty"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	DueDate     string `json:"dueDate"`
-	Recurring   string `json:"recurring"`
+	Id          int        `json:"id,omitempty"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	DueDate     string     `json:"dueDate"`
+	Recurring   string     `json:"recurring"`
+	DoneDate    nullString `json:"doneDate"`
 }
 
 type TaskDTO struct {
@@ -88,4 +91,27 @@ type RecurringType struct {
 type TaskStatus struct {
 	Id    int
 	Title string
+}
+
+// Null string to handle the done_date column
+type nullString string
+
+func (s *nullString) Scan(value interface{}) error {
+	if value == nil {
+		*s = ""
+		return nil
+	}
+	strVal, ok := value.(string)
+	if !ok {
+		return errors.New("Column is not a string")
+	}
+	*s = nullString(strVal)
+	return nil
+}
+
+func (s nullString) Value() (driver.Value, error) {
+	if len(s) == 0 { // if nil or empty string
+		return nil, nil
+	}
+	return string(s), nil
 }
